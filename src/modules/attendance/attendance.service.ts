@@ -1,34 +1,29 @@
-import { Injectable } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { AttendanceRecord } from 'src/entities/attendance_records';
+import { BadRequestException, Injectable } from '@nestjs/common';
+import { CheckInTimeValidator } from '/src/shared/validators/check-in-time.validator.ts';
+import { Employee } from '/src/entities/employees.ts';
+import { AttendanceRecord } from '/src/entities/attendance_records.ts';
 import { Repository } from 'typeorm';
+import { InjectRepository } from '@nestjs/typeorm';
 
 @Injectable()
 export class AttendanceService {
   constructor(
+    @InjectRepository(Employee)
+    private employeeRepository: Repository<Employee>,
     @InjectRepository(AttendanceRecord)
     private attendanceRecordRepository: Repository<AttendanceRecord>,
   ) {}
 
-  async getEmployeeCheckInStatus(employeeId: number, date: Date): Promise<{ checkInStatus: 'enabled' | 'disabled' }> {
-    try {
-      const attendanceRecord = await this.attendanceRecordRepository.findOne({
-        where: {
-          employee_id: employeeId,
-          date: date,
-        },
-      });
+  async validateCheckInTime(employee_id: number, current_time: Date): Promise<void> {
+    const checkInTimeValidator = new CheckInTimeValidator();
+    const validationResult = checkInTimeValidator.validate(current_time);
 
-      if (attendanceRecord && attendanceRecord.check_in_time) {
-        return { checkInStatus: 'disabled' };
-      } else {
-        return { checkInStatus: 'enabled' };
-      }
-    } catch (error) {
-      // Handle the error appropriately (e.g., log the error, return a default status)
-      console.error('Error fetching attendance record:', error);
-      // Depending on the system's requirements, you might want to throw an error or return a default status
-      throw error; // or return { checkInStatus: 'enabled' };
+    if (!validationResult.isValid) {
+      throw new BadRequestException(validationResult.message);
     }
+
+    // Additional logic to handle check-in can be added here if needed
   }
+
+  // Other methods of the AttendanceService can be added here
 }
