@@ -23,7 +23,14 @@ export class AttendanceService {
     }
 
     // Validate check-in time against permissible hours
-    if (!(await this.checkInTimeValidator.validate(checkInTime, { object: { employee_id: employeeId } }))) {
+    const validationArgs: ValidationArguments = {
+      value: checkInTime,
+      constraints: [],
+      targetName: 'checkInTime',
+      object: { employee_id: employeeId },
+      property: 'checkInTime'
+    };
+    if (!(await this.checkInTimeValidator.validate(checkInTime, validationArgs))) {
       throw new BadRequestException("Check-in not allowed outside permissible hours.");
     }
 
