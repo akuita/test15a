@@ -56,4 +56,26 @@ export class AttendanceService {
       checkInTime: checkInTime
     };
   }
+
+  async getEmployeeCheckInStatus(employeeId: number, date: Date): Promise<{ status: number; check_in_status: { enabled: boolean; message: string; }; }> {
+    // Validate if the employee_id exists
+    const employee = await this.employeeRepository.findOneBy({ id: employeeId });
+    if (!employee) {
+      throw new NotFoundException("Employee not found.");
+    }
+
+    // Find the attendance record for the given employee_id and date
+    const attendanceRecord = await this.attendanceRecordRepository.findOneBy({
+      employee_id: employeeId,
+      date: date
+    });
+
+    // Determine the check-in status
+    const checkInStatus = {
+      enabled: !!attendanceRecord?.check_in_time,
+      message: attendanceRecord?.check_in_time ? "Checked in" : "Not checked in"
+    };
+
+    return { status: 200, check_in_status: checkInStatus };
+  }
 }
