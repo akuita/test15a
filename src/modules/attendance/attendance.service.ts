@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import { CheckInTimeValidator } from 'src/shared/validators/check-in-time.validator.ts';
 import { Employee } from 'src/entities/employees';
 import { AttendanceRecord } from 'src/entities/attendance_records';
 import { Repository } from 'typeorm';
@@ -10,7 +11,8 @@ export class AttendanceService {
     @InjectRepository(Employee)
     private employeeRepository: Repository<Employee>,
     @InjectRepository(AttendanceRecord)
-    private attendanceRecordRepository: Repository<AttendanceRecord>
+    private attendanceRecordRepository: Repository<AttendanceRecord>,
+    private checkInTimeValidator: CheckInTimeValidator
   ) {}
 
   async recordEmployeeCheckIn(employeeId: number, checkInTime: Date, date: Date): Promise<{ confirmation: string; employeeDetails: Employee; checkInTime: Date }> {
@@ -18,6 +20,11 @@ export class AttendanceService {
     const employee = await this.employeeRepository.findOneBy({ id: employeeId });
     if (!employee) {
       throw new NotFoundException(`Employee with ID ${employeeId} not found`);
+    }
+
+    // Validate check-in time against permissible hours
+    if (!(await this.checkInTimeValidator.validate(checkInTime, { object: { employee_id: employeeId } }))) {
+      throw new BadRequestException("Check-in not allowed outside permissible hours.");
     }
 
     // Check if an entry exists for the given employee_id and date
@@ -55,27 +62,5 @@ export class AttendanceService {
       employeeDetails: employee,
       checkInTime: checkInTime
     };
-  }
-
-  async getEmployeeCheckInStatus(employeeId: number, date: Date): Promise<{ status: number; check_in_status: { enabled: boolean; message: string; }; }> {
-    // Validate if the employee_id exists
-    const employee = await this.employeeRepository.findOneBy({ id: employeeId });
-    if (!employee) {
-      throw new NotFoundException("Employee not found.");
-    }
-
-    // Find the attendance record for the given employee_id and date
-    const attendanceRecord = await this.attendanceRecordRepository.findOneBy({
-      employee_id: employeeId,
-      date: date
-    });
-
-    // Determine the check-in status
-    const checkInStatus = {
-      enabled: !!attendanceRecord?.check_in_time,
-      message: attendanceRecord?.check_in_time ? "Checked in" : "Not checked in"
-    };
-
-    return { status: 200, check_in_status: checkInStatus };
   }
 }
